@@ -39,7 +39,7 @@ STLIBPATH         = ['deps/*/lib']
 STLIB             = ['ole32', 'gdi32', 'advapi32', 'user32', 'shell32', 'kernel32']
 
 # List of common defines for all build variants
-DEFINES           = []
+DEFINES           = ['ASIO_STANDALONE']
 
 # Specify the default build variant if none given in the command line (Debug, Release)
 DEF_BUILD_VARIANT = 'Release'
@@ -69,7 +69,7 @@ def get_defines(ctx, build_variant):
                          '_UNICODE',
                          '_CRT_SECURE_NO_WARNINGS',
                          #'WINVER=0x0600',
-                         #'_WIN32_WINNT=0x0600'
+                         '_WIN32_WINNT=0x0600'
                      ]
 
     variant_defines = {
@@ -124,9 +124,12 @@ def get_compiler_flags(ctx, compiler_name, build_variant):
 def get_linker_flags(ctx, compiler_name, build_variant):
     # Common flags for all build variants
     base_flags = {
-                     'msvc'   : ['/nologo', '/manifest', '/subsystem:windows', '/entry:mainCRTStartup'],
-                     'g++'    : ['-static', '-static-libgcc', '-static-libstdc++', '-Wl,-subsystem,windows'],
-                     'clang++': ['-static', '-static-libgcc', '-static-libstdc++', '-Wl,-subsystem,windows'],
+                     #'msvc'   : ['/nologo', '/manifest', '/subsystem:windows', '/entry:mainCRTStartup'],
+                     #'g++'    : ['-static', '-static-libgcc', '-static-libstdc++', '-Wl,-subsystem,windows'],
+                     #'clang++': ['-static', '-static-libgcc', '-static-libstdc++', '-Wl,-subsystem,windows'],
+                     'msvc'   : ['/nologo', '/manifest'],
+                     'g++'    : ['-static', '-static-libgcc', '-static-libstdc++'],
+                     'clang++': ['-static', '-static-libgcc', '-static-libstdc++'],
                  }
 
     variant_specific_flags = \

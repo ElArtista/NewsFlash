@@ -28,15 +28,129 @@
 /*   ' ') '( (/                                                                                                      */
 /*     '   '  `                                                                                                      */
 /*********************************************************************************************************************/
-#include "MessageServer.hpp"
+#ifndef _MESSAGE_SERVER_HPP_
+#define _MESSAGE_SERVER_HPP_
 
-int main(int argc, char* argv[])
+#include <stdint.h>
+#include <memory>
+#include <functional>
+#include <set>
+#include <memory>
+
+#include <asio.hpp>
+#include "Logger.hpp"
+
+///==============================================================
+///= ClientConnection
+///==============================================================
+class ConnectionManager;
+
+class ClientConnection : public std::enable_shared_from_this<ClientConnection>
 {
-    (void) argc;
-    (void) argv;
+	public:
+		/// Constructor
+		explicit ClientConnection(asio::ip::tcp::socket sock, ConnectionManager& parentConMan);
 
-    MessageServer srv;
-    srv.Run();
+		/// Disable copy construction
+		ClientConnection(const ClientConnection& rhs) = delete;
+		ClientConnection& operator=(const ClientConnection& rhs) = delete;
 
-    return 0;
-}
+		/// Prepares current client for send and recv operations
+		void Start();
+
+		/// Stop all asynchronous operations associated with the connection.
+		void Stop();
+
+		/// Gets, handles the message and returns the responce
+		void HandleMessage(std::string);
+
+	private:
+		/// Perform an asynchronous read operation.
+		void DoRecv();
+
+		/// Perform an asynchronous write operation.
+		void DoSend(std::string msg);
+
+		/// The socket that is assosiated with the current connection
+        asio::ip::tcp::socket mSocket;
+
+		/// Buffer for incoming data
+		std::array<char, 4096> mRvBuf;
+
+		/// Buffer for outgoing data
+		std::array<char, 4096> mSdBuf;
+
+		/// The connection manager that holds this connection
+		ConnectionManager& mParentConnectionManager;
+
+		/// Stores the ip of the client, used for diagnostic messages
+		std::string mIP;
+};
+
+typedef std::shared_ptr<ClientConnection> ClientConnectionPtr;
+
+
+///==============================================================
+///= ConnectionManager
+///==============================================================
+
+class ConnectionManager
+{
+	public:
+		/// Add the specified connection to the manager and start it.
+		void Start(ClientConnectionPtr c);
+
+		/// Stop the specified connection.
+		void Stop(ClientConnectionPtr c);
+
+		/// Stop all connections.
+		void StopAll();
+
+	private:
+		/// The managed connections.
+		std::set<ClientConnectionPtr> mConnections;
+};
+
+
+///==============================================================
+///= MessageServer
+///==============================================================
+
+class MessageServer
+{
+	public:
+		/// Constructor, takes as argument the listen port
+		explicit MessageServer(unsigned short port = 7777);
+
+		/// Disable copy construction
+		MessageServer(const MessageServer& rhs) = delete;
+		MessageServer& operator=(const MessageServer& rhs) = delete;
+
+		/// Starts the operation of the server synchronously
+		void Run();
+
+	private:
+		/// Perform an asynchronous accept operation.
+		void DoAccept();
+
+		/// Wait for a request to stop the server.
+		void DoAwaitStop();
+
+		/// The io_service used to perform asynchronous operations.
+        asio::io_service mIOService;
+
+		/// Acceptor used to listen for incoming connections.
+        asio::ip::tcp::acceptor mAcceptor;
+
+		/// The signal_set is used to register for process termination notifications.
+        asio::signal_set mSignals;
+
+		/// The connection manager which owns all live connections.
+		ConnectionManager mConnectionManager;
+
+		/// The next socket to be accepted.
+        asio::ip::tcp::socket mAcceptSocket;
+};
+
+#endif // ! _MESSAGE_SERVER_HPP_
+
