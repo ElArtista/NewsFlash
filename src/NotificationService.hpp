@@ -72,7 +72,7 @@ class NotificationService : public UIElement
         void CreateMsgWnd();
 
         /// WndProc used by the message window that spawns the notifications
-		LRESULT CALLBACK MessageHandler(HWND hh, UINT mm, WPARAM ww, LPARAM ll);
+        LRESULT CALLBACK MessageHandler(HWND hh, UINT mm, WPARAM ww, LPARAM ll);
 
         /// The id of the thread that the notification creator window was created
         //DWORD mLoopThreadId;

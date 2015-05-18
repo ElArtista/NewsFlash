@@ -30,7 +30,7 @@ class NotificationWindow : public UIElement
         void OnPaint();
 
         /// The WndProc
-		LRESULT CALLBACK MessageHandler(HWND hh, UINT mm, WPARAM ww, LPARAM ll);
+        LRESULT CALLBACK MessageHandler(HWND hh, UINT mm, WPARAM ww, LPARAM ll);
 
         /// Handle to current window
         HWND mHwnd;

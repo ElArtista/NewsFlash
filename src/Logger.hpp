@@ -39,9 +39,9 @@
 
 enum class LogLevel
 {
-	Info,
-	Warn,
-	Error
+    Info,
+    Warn,
+    Error
 };
 
 std::string LogLevelToStr(LogLevel ll);
@@ -54,66 +54,66 @@ std::string LogLevelToStr(LogLevel ll);
 template<typename Appender, typename Formatter>
 class Logger
 {
-	private:
-		/// The mutex that guarrantees the thread safety of the logger 
-		std::mutex mAppenderMutex;
+    private:
+        /// The mutex that guarrantees the thread safety of the logger 
+        std::mutex mAppenderMutex;
 
-		/// The instance of the appender used
-		Appender mAppender;
+        /// The instance of the appender used
+        Appender mAppender;
 
-		/// The instance of the formatter used
-		Formatter mFormatter;
+        /// The instance of the formatter used
+        Formatter mFormatter;
 
-	public:
-		/// Logs given message with given info level
-		void Log(LogLevel level, const std::string& msg);
+    public:
+        /// Logs given message with given info level
+        void Log(LogLevel level, const std::string& msg);
 
-		/// Logs given message with an info level
-		void Info(const std::string& msg);
+        /// Logs given message with an info level
+        void Info(const std::string& msg);
 
-		/// Logs given message with an warn level
-		void Warn(const std::string& msg);
+        /// Logs given message with an warn level
+        void Warn(const std::string& msg);
 
-		/// Logs given message with an error level
-		void Error(const std::string& msg);
+        /// Logs given message with an error level
+        void Error(const std::string& msg);
 };
 
 template<typename Appender, typename Formatter>
 void Logger<Appender, Formatter>::Log(LogLevel level, const std::string& msg)
 {
-	mAppenderMutex.lock();
-	mAppender(mFormatter(level, msg));
-	mAppenderMutex.unlock();
+    mAppenderMutex.lock();
+    mAppender(mFormatter(level, msg));
+    mAppenderMutex.unlock();
 }
 
 template<typename Appender, typename Formatter>
 void Logger<Appender, Formatter>::Info(const std::string& msg)
 {
-	return Log(LogLevel::Info, msg);
+    return Log(LogLevel::Info, msg);
 }
 
 template<typename Appender, typename Formatter>
 void Logger<Appender, Formatter>::Warn(const std::string& msg)
 {
-	return Log(LogLevel::Warn, msg);
+    return Log(LogLevel::Warn, msg);
 }
 
 template<typename Appender, typename Formatter>
 void Logger<Appender, Formatter>::Error(const std::string& msg)
 {
-	return Log(LogLevel::Error, msg);
+    return Log(LogLevel::Error, msg);
 }
 
 class SimpleFormatter
 {
-	public:
-	std::string operator()(LogLevel, const std::string&);
+    public:
+    std::string operator()(LogLevel, const std::string&);
 };
 
 class ConsoleAppender
 {
-	public:
-		void operator()(const std::string&);
+    public:
+        void operator()(const std::string&);
 };
 
 #endif

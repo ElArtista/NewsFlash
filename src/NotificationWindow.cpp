@@ -21,52 +21,52 @@ NotificationWindow::~NotificationWindow()
 
 bool NotificationWindow::Register()
 {
-	WNDCLASSEX wc = {};
-	wc.cbSize = sizeof(WNDCLASSEX);
-	wc.lpfnWndProc = UIElement::ProxyMsgHandler;
-	wc.hInstance = GetModuleHandle(0);
-	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wc.lpszMenuName = 0;
-	wc.hbrBackground = 0;
-	wc.lpszClassName = wndClassName;
-	return RegisterClassEx(&wc) != 0;
+    WNDCLASSEX wc = {};
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.lpfnWndProc = UIElement::ProxyMsgHandler;
+    wc.hInstance = GetModuleHandle(0);
+    wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.lpszMenuName = 0;
+    wc.hbrBackground = 0;
+    wc.lpszClassName = wndClassName;
+    return RegisterClassEx(&wc) != 0;
 }
 
 void NotificationWindow::Create()
 {
-	// Get desktop dimensions
-	RECT desktopRect = {};
-	GetWindowRect(GetDesktopWindow(), &desktopRect);
+    // Get desktop dimensions
+    RECT desktopRect = {};
+    GetWindowRect(GetDesktopWindow(), &desktopRect);
 
-	// Calculate the window dimensions
-	RECT rect = desktopRect;
+    // Calculate the window dimensions
+    RECT rect = desktopRect;
 
-	// The window styles that the window will use
-	int wStyle = WS_BORDER | WS_VISIBLE;
+    // The window styles that the window will use
+    int wStyle = WS_BORDER | WS_VISIBLE;
 
-	// Set the client area to the 80% of the desktop resolution
-	rect.bottom = (LONG)(rect.bottom * 0.1);
-	rect.right = rect.bottom;
-	AdjustWindowRectEx(&rect, wStyle, TRUE, 0);
+    // Set the client area to the 80% of the desktop resolution
+    rect.bottom = (LONG)(rect.bottom * 0.1);
+    rect.right = rect.bottom;
+    AdjustWindowRectEx(&rect, wStyle, TRUE, 0);
 
-	mHwnd = CreateWindowEx(
-		WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW,
-		wndClassName,
-		_T(""),
-		wStyle,
-		CW_USEDEFAULT,
-		CW_USEDEFAULT,
-		200,
-		200,
-		0,
-		0,
-		GetModuleHandle(0),
-		this
-	);
+    mHwnd = CreateWindowEx(
+        WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW,
+        wndClassName,
+        _T(""),
+        wStyle,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        200,
+        200,
+        0,
+        0,
+        GetModuleHandle(0),
+        this
+    );
 
-	// Remove borders and stuff
-	SetWindowLongPtr(mHwnd, GWL_STYLE, 0);
+    // Remove borders and stuff
+    SetWindowLongPtr(mHwnd, GWL_STYLE, 0);
     ShowWindow(mHwnd, SW_SHOW);
     UpdateWindow(mHwnd);
 }
@@ -137,17 +137,17 @@ void NotificationWindow::OnPaint()
 
 LRESULT CALLBACK NotificationWindow::MessageHandler(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
 {
-	switch (mm)
-	{
-		case WM_CREATE:
-		{
+    switch (mm)
+    {
+        case WM_CREATE:
+        {
             // Store the window handle
-			mHwnd = hh;
+            mHwnd = hh;
 
-			// Set opacity
-			COLORREF col = {0};
-			SetLayeredWindowAttributes(hh, col, 127, LWA_ALPHA);
-			break;
+            // Set opacity
+            COLORREF col = {0};
+            SetLayeredWindowAttributes(hh, col, 127, LWA_ALPHA);
+            break;
         }
         case WM_PAINT:
         {
@@ -155,8 +155,8 @@ LRESULT CALLBACK NotificationWindow::MessageHandler(HWND hh, UINT mm, WPARAM ww,
             break;
         }
         default:
-			return DefWindowProc(hh, mm, ww, ll);
-	}
-	return 0;
+            return DefWindowProc(hh, mm, ww, ll);
+    }
+    return 0;
 }
 

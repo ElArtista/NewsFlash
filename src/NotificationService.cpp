@@ -17,12 +17,12 @@ void NotificationService::Run()
     CreateMsgWnd();
 
     // Run the message loop
-	MSG msg;
-	while (GetMessage(&msg, NULL, 0, 0) > 0)
-	{
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
-	}
+    MSG msg;
+    while (GetMessage(&msg, NULL, 0, 0) > 0)
+    {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
 }
 
 void NotificationService::RunAsync()
@@ -75,13 +75,13 @@ UINT_PTR NotificationService::sTmrIdGen = 0;
 
 LRESULT NotificationService::MessageHandler(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
 {
-	switch (mm)
-	{
-		case WM_CREATE:
-		{
+    switch (mm)
+    {
+        case WM_CREATE:
+        {
 
-			break;
-		}
+            break;
+        }
         case WM_SPAWN_NOTIFICATION:
         {
             // Fetch the notification data
@@ -108,12 +108,12 @@ LRESULT NotificationService::MessageHandler(HWND hh, UINT mm, WPARAM ww, LPARAM 
             KillTimer(mHMsgWnd, tmrId);
             break;
         }
-		case WM_DESTROY:
-			PostQuitMessage(0);
-			break;
-		default:
-			return DefWindowProc(hh, mm, ww, ll);
-	}
-	return 0;
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            break;
+        default:
+            return DefWindowProc(hh, mm, ww, ll);
+    }
+    return 0;
 }
 
