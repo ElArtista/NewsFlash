@@ -40,6 +40,9 @@
 #include <asio.hpp>
 #include "Logger.hpp"
 
+/// Sets the function that will be called when the message server receives a notification
+void SetNotificationEventCallback(std::function<void(const std::string&, unsigned int)> cb);
+
 ///==============================================================
 ///= ClientConnection
 ///==============================================================
@@ -129,6 +132,9 @@ class MessageServer
 		/// Starts the operation of the server synchronously
 		void Run();
 
+        /// Sets the callback that is called when the server exits (optional)
+        void SetExitCallback(std::function<void()> cb);
+
 	private:
 		/// Perform an asynchronous accept operation.
 		void DoAccept();
@@ -150,6 +156,9 @@ class MessageServer
 
 		/// The next socket to be accepted.
         asio::ip::tcp::socket mAcceptSocket;
+
+        /// The optional exit callback
+        std::function<void()> mExitCallback;
 };
 
 #endif // ! _MESSAGE_SERVER_HPP_

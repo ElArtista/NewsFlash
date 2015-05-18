@@ -1,8 +1,17 @@
 #include "MessageServer.hpp"
 #include <sstream>
+#include "NotificationWindow.hpp"
 
 // A simple logger
-Logger<ConsoleAppender, SimpleFormatter> CLogger;
+static Logger<ConsoleAppender, SimpleFormatter> CLogger;
+
+// The notification callback holder
+static std::function<void(const std::string&, unsigned int)> notificationCallback;
+
+void SetNotificationEventCallback(std::function<void(const std::string&, unsigned int)> cb)
+{
+    notificationCallback = cb;
+}
 
 ///==============================================================
 ///= ClientConnection
@@ -77,7 +86,8 @@ void ClientConnection::DoSend(std::string message)
 
 void ClientConnection::HandleMessage(std::string msg)
 {
-    CLogger.Info("Received: " + msg);
+    notificationCallback(msg, 3000);
+
 	// Send back the responce
 	DoSend(msg);
 }
@@ -145,6 +155,11 @@ void MessageServer::Run()
 	mIOService.run();
 }
 
+void MessageServer::SetExitCallback(std::function<void()> cb)
+{
+    mExitCallback = cb;
+}
+
 void MessageServer::DoAccept()
 {
 	CLogger.Info("Preparing interface to for accept...");
@@ -190,6 +205,8 @@ void MessageServer::DoAwaitStop()
 			mConnectionManager.StopAll();
 
 			CLogger.Info("Server is shuting down...");
+            if (mExitCallback)
+                mExitCallback();
 		}
 	);
 }
