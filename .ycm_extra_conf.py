@@ -31,7 +31,7 @@ def FlagsForFile(filename, **kwargs):
     flags.extend(lang_specific_flags[filetype])
 
     includes = glob.glob(os.path.dirname(os.path.realpath(inspect.getfile(inspect.currentframe()))) + '/deps/*/include')
-    defines  = ['ASIO_STANDALONE'] 
+    defines  = ['ASIO_STANDALONE', '_WIN32_WINNT=0x0600', 'WINVER=0x0600']
 
     for i in includes:
         flags.append('-I' + i)

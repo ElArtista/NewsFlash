@@ -28,58 +28,34 @@
 /*   ' ') '( (/                                                                                                      */
 /*     '   '  `                                                                                                      */
 /*********************************************************************************************************************/
-#include <thread>
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <objbase.h>
-#include "MessageServer.hpp"
-#include "NotificationService.hpp"
+#ifndef _NOTIFICATION_DRAWER_HPP_
+#define _NOTIFICATION_DRAWER_HPP_
 
-int main(int argc, char* argv[])
+#include <string>
+#include <unordered_map>
+#include <memory>
+#include "NotificationWindow.hpp"
+#include "Animation.hpp"
+
+class NotificationDrawer
 {
-    (void) argc;
-    (void) argv;
+    public:
+        /// Creates a notification window with the given properties
+        void SpawnNotification(const std::string& msg, unsigned int lifetime);
 
-    // Initialize COM
-    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
-    if (FAILED(hr))
-    {
-        void* lpMsgBuf = 0;
-        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                      0,
-                      GetLastError(),
-                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                      (LPTSTR)&lpMsgBuf,
-                      0,
-                      0
-        );
-        MessageBox(0, (TCHAR*)lpMsgBuf, _T("Error"), MB_OK);
-        LocalFree(lpMsgBuf);
-        return -1;
-    }
+        /// Clears drawer from all the notifications
+        void Clear();
 
-    NotificationService ns;
-    auto x = std::bind(&NotificationService::ShowNotification, &ns, std::placeholders::_1, std::placeholders::_2);
-    SetNotificationEventCallback(x);
+    private:
+        /// The container that holds the notification window instances
+        std::unordered_map<unsigned long, std::unique_ptr<NotificationWindow>> mNotifications;
 
-    // Spawn the server thread
-    auto st = [&ns]() 
-    {
-        MessageServer srv;
-        srv.SetExitCallback(std::bind(&NotificationService::Stop, &ns));
-        srv.Run();
-    };
-    std::thread t(st);
+        /// The Animator that schedules the various animation effects
+        Animator mAnimator;
 
-    // Run syncronously the notification service
-    ns.Run();
+        /// The id value generator
+        static unsigned long sNWIdGen;
+};
 
-    // Join the server thread
-    t.join();
-
-    // Deinitialize COM
-    CoUninitialize();
-
-    return 0;
-}
+#endif // ! _NOTIFICATION_DRAWER_HPP_
 

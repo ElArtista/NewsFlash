@@ -16,6 +16,15 @@ class NotificationWindow : public UIElement
         /// Sets the notification message
         void SetMessage(const std::string& msg);
 
+        /// Sets the notification window position
+        void SetPosition(int x, int y);
+
+        /// Retrieves the notification window alpha value (as a percentage)
+        unsigned int GetAlpha() const;
+
+        /// Sets the notification window alpha value (as a percentage)
+        void SetAlpha(unsigned int alpha);
+
     private:
         /// Registers the window class used to create notification windows
         bool Register();

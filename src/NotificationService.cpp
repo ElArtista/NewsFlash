@@ -1,18 +1,7 @@
 #include "NotificationService.hpp"
 
-NotificationService::NotificationService()
-{
-}
-
-NotificationService::~NotificationService()
-{
-}
-
 void NotificationService::Run()
 {
-    // Store the thread id of the thread that has the message loop
-    //mLoopThreadId = GetCurrentThreadId();
-
     // Create the message window that will receive the notification create events
     CreateMsgWnd();
 
@@ -35,7 +24,7 @@ void NotificationService::RunAsync()
 void NotificationService::Stop()
 {
     // Destroy all Notification windows
-    mNotifications.clear();
+    mDrawer.Clear();
 
     // Close the message loop by sending WM_DESTROY to the message window
     SendMessage(mHMsgWnd, WM_DESTROY, 0, 0);
@@ -46,7 +35,6 @@ void NotificationService::ShowNotification(const std::string& msg, unsigned int 
     NotificationData* data = new NotificationData;
     data->msg = msg;
     data->lifetime = lifetime;
-    //PostThreadMessage(mLoopThreadId, WM_SPAWN_NOTIFICATION, 0, reinterpret_cast<LPARAM>(data));
     PostMessage(mHMsgWnd, WM_SPAWN_NOTIFICATION, 0, reinterpret_cast<LPARAM>(data));
 }
 
@@ -67,45 +55,26 @@ void NotificationService::CreateMsgWnd()
         RegisterClassEx(&wc);
     }
 
+    // Create the message only window
     mHMsgWnd = CreateWindowEx(0, dummyWndClassName, _T(""), 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, this);
 }
 
 const UINT NotificationService::WM_SPAWN_NOTIFICATION = WM_USER + 77;
-UINT_PTR NotificationService::sTmrIdGen = 0;
 
 LRESULT NotificationService::MessageHandler(HWND hh, UINT mm, WPARAM ww, LPARAM ll)
 {
     switch (mm)
     {
-        case WM_CREATE:
-        {
-
-            break;
-        }
         case WM_SPAWN_NOTIFICATION:
         {
             // Fetch the notification data
             NotificationData* data = reinterpret_cast<NotificationData*>(ll);
 
             // Create and store the notification
-            std::unique_ptr<NotificationWindow> nw = std::make_unique<NotificationWindow>();
-            nw->SetMessage(data->msg);
-            mNotifications.insert(std::make_pair(sTmrIdGen, std::move(nw)));
-
-            // Fire death timer 
-            SetTimer(mHMsgWnd, sTmrIdGen, data->lifetime, 0);
-            sTmrIdGen++;
+            mDrawer.SpawnNotification(data->msg, data->lifetime);
             
             // Delete unused notification data
             delete data;
-
-            break;
-        }
-        case WM_TIMER:
-        {
-            UINT_PTR tmrId = static_cast<UINT_PTR>(ww);
-            mNotifications.erase(tmrId);
-            KillTimer(mHMsgWnd, tmrId);
             break;
         }
         case WM_DESTROY:

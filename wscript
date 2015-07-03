@@ -68,7 +68,7 @@ def get_defines(ctx, build_variant):
                          'UNICODE',
                          '_UNICODE',
                          '_CRT_SECURE_NO_WARNINGS',
-                         #'WINVER=0x0600',
+                         'WINVER=0x0600',
                          '_WIN32_WINNT=0x0600'
                      ]
 

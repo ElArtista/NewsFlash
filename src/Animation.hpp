@@ -28,58 +28,93 @@
 /*   ' ') '( (/                                                                                                      */
 /*     '   '  `                                                                                                      */
 /*********************************************************************************************************************/
-#include <thread>
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <objbase.h>
-#include "MessageServer.hpp"
-#include "NotificationService.hpp"
+#ifndef _ANIMATION_HPP_
+#define _ANIMATION_HPP_
 
-int main(int argc, char* argv[])
+#include <UIAnimation.h>
+#include <atlbase.h>
+#include <vector>
+#include <functional>
+
+class NotificationAnimationTimeEventHandler;
+
+class Animator
 {
-    (void) argc;
-    (void) argv;
+    public:
+        /// Constructor
+        Animator();
 
-    // Initialize COM
-    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
-    if (FAILED(hr))
-    {
-        void* lpMsgBuf = 0;
-        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                      0,
-                      GetLastError(),
-                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                      (LPTSTR)&lpMsgBuf,
-                      0,
-                      0
+        /// Destructor
+        ~Animator();
+
+        /// Disable copying
+        Animator(const Animator&) = delete;
+        Animator& operator=(const Animator&) = delete;
+
+        /// Schedules a sample animation with given function as a callback
+        void DoSampleAnimation(std::function<void()> cbAction);
+
+    private:
+        // The holder of the UIAnimationManager
+        CComPtr<IUIAnimationManager> pAnimMgr;
+
+        // The holder of the UIAnimationTimer
+        CComPtr<IUIAnimationTimer> pAnimTmr;
+
+        // The holder of the UITransitionLibrary
+        CComPtr<IUIAnimationTransitionLibrary> pTransLib;
+
+        // The timer event handler implementation
+        NotificationAnimationTimeEventHandler* timeEvHandler;
+};
+
+class NotificationAnimationManagerEventHandler : public IUIAnimationManagerEventHandler
+{
+    public:
+        /// Constructor
+        NotificationAnimationManagerEventHandler();
+
+        /// IUnknown Interface implementation
+        ULONG __stdcall AddRef();
+        ULONG __stdcall Release();
+        HRESULT __stdcall QueryInterface(const IID& id, void** p);
+
+        /// IUIAnimationManagerEventHandler
+        HRESULT __stdcall OnManagerStatusChanged(
+            UI_ANIMATION_MANAGER_STATUS newStatus,
+            UI_ANIMATION_MANAGER_STATUS previousStatus
         );
-        MessageBox(0, (TCHAR*)lpMsgBuf, _T("Error"), MB_OK);
-        LocalFree(lpMsgBuf);
-        return -1;
-    }
 
-    NotificationService ns;
-    auto x = std::bind(&NotificationService::ShowNotification, &ns, std::placeholders::_1, std::placeholders::_2);
-    SetNotificationEventCallback(x);
+    private:
+        /// Reference counter of current object
+        unsigned long ref;
+};
 
-    // Spawn the server thread
-    auto st = [&ns]() 
-    {
-        MessageServer srv;
-        srv.SetExitCallback(std::bind(&NotificationService::Stop, &ns));
-        srv.Run();
-    };
-    std::thread t(st);
+class NotificationAnimationTimeEventHandler : public IUIAnimationTimerEventHandler
+{
+    public:
+        /// Constructor
+        NotificationAnimationTimeEventHandler();
 
-    // Run syncronously the notification service
-    ns.Run();
+        /// IUnknown Interface implementation
+        ULONG __stdcall AddRef();
+        ULONG __stdcall Release();
+        HRESULT __stdcall QueryInterface(const IID& id, void** p);
 
-    // Join the server thread
-    t.join();
+        /// IUIAnimationTimerEventHandler Interface Implementation
+        HRESULT __stdcall OnPostUpdate();
+        HRESULT __stdcall OnPreUpdate();
+        HRESULT __stdcall OnRenderingTooSlow(UINT32 framesPerSecond);
 
-    // Deinitialize COM
-    CoUninitialize();
+        /// Appends a callback function that is called when the animation ticks
+        void AddCallbackAction(std::function<void()> cbAction);
 
-    return 0;
-}
+    private:
+        /// Holder of the callback functions
+        std::vector<std::function<void()>> cbActions;
 
+        /// Reference counter of current object
+        unsigned long ref;
+};
+
+#endif // ! _ANIMATION_HPP_

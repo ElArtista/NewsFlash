@@ -3,7 +3,7 @@
 
 const TCHAR* NotificationWindow::wndClassName = _T("NotificationWndClass");
 
-NotificationWindow::NotificationWindow()
+NotificationWindow::NotificationWindow() : mHwnd(nullptr)
 {
     // Check if window class is registered and register it if it isn't
     WNDCLASS wc;
@@ -80,6 +80,24 @@ void NotificationWindow::Destroy()
 void NotificationWindow::SetMessage(const std::string& msg)
 {
     (void) msg;
+}
+
+void NotificationWindow::SetPosition(int x, int y)
+{
+    SetWindowPos(mHwnd, 0, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
+unsigned int NotificationWindow::GetAlpha() const
+{
+    BYTE alpha;
+    GetLayeredWindowAttributes(mHwnd, nullptr, &alpha, nullptr);
+    return alpha * 100 / 255;
+}
+
+void NotificationWindow::SetAlpha(unsigned int alpha)
+{
+    COLORREF col = {0};
+    SetLayeredWindowAttributes(mHwnd, col, static_cast<BYTE>(alpha) * 255 / 100, LWA_ALPHA);
 }
 
 void NotificationWindow::OnPaint()
