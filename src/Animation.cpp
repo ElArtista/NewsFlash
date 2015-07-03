@@ -2,6 +2,45 @@
 #include <algorithm>
 
 ///==============================================================
+///= Transition
+///==============================================================
+Transition::Transition(unsigned long duration, double initVal, double finalVal)
+    : mDuration(duration),
+      mInitVal(initVal),
+      mFinalVal(finalVal)
+{
+}
+
+auto Transition::GetDuration() const -> unsigned long { return mDuration; }
+auto Transition::GetInitVal() const -> double { return mInitVal; }
+auto Transition::GetFinalVal() const -> double { return mFinalVal; }
+
+///==============================================================
+///= Storyboard
+///==============================================================
+auto begin(const Storyboard& s) -> Storyboard::const_iterator
+{
+    return std::begin(s.mTransitions);
+}
+
+auto end(const Storyboard& s) -> Storyboard::const_iterator
+{
+    return std::end(s.mTransitions);
+}
+
+///==============================================================
+///= Storyboard
+///==============================================================
+Animation::Animation(Storyboard s, UpdateCallback updateCb)
+    : mStoryboard(s),
+      mUpdateCb(updateCb)
+{
+}
+
+auto Animation::GetStoryboard() const -> const Storyboard& { return mStoryboard; }
+auto Animation::GetUpdateCallback() const -> const UpdateCallback& { return mUpdateCb; }
+
+///==============================================================
 ///= Animator
 ///==============================================================
 Animator::Animator()
@@ -14,24 +53,12 @@ Animator::Animator()
     if (FAILED(hr))
         return;
 
-    // Allocate the manager event handler
-    NotificationAnimationManagerEventHandler* animMgrEvHandler = new NotificationAnimationManagerEventHandler;
-
-    // Implement an IUIAnimationManagerEventHandler event handler and pass it to IUIAnimationManager::SetManagerEventHandler.
-    hr = pAnimMgr->SetManagerEventHandler(animMgrEvHandler);
-
     // =- UIAnimationTimer
     // CoCreate the IUIAnimationTimer.
     hr = pAnimTmr.CoCreateInstance(CLSID_UIAnimationTimer, 0, CLSCTX_INPROC_SERVER);
     if (FAILED(hr))
         return;
     
-    // Allocate the timer event handler
-    timeEvHandler = new NotificationAnimationTimeEventHandler;
-
-    // Pass the IUIAnimationTimerEventHandler event handler implementation using IUIAnimationTimer::SetTimerEventHandler.
-    hr = pAnimTmr->SetTimerEventHandler(timeEvHandler);
-
     // =- UIAnimationManager <-> UIAnimationTimer linking
     // Attach the timer to the manager by calling IUIAnimationManager::SetTimerUpdateHandler(),
     // passing an IUIAnimationTimerUpdateHandler. You can get this interface by querying the IUIAnimationTimer.
@@ -55,21 +82,24 @@ Animator::Animator()
 
 Animator::~Animator()
 {
-    pAnimTmr->Disable();
+    if (SUCCEEDED(pAnimTmr->IsEnabled()))
+        pAnimTmr->Disable();
 }
 
 // Animates given window with a custom transition
-void Animator::DoSampleAnimation(std::function<void()> cbAction)
+void Animator::DoSampleAnimation(const Animation& animation)
 {
     HRESULT hr;
-
-    // Store the animation callback action
-    timeEvHandler->AddCallbackAction(cbAction);
 
     // Create all the animation variables by calling IUIAnimationManager::CreateAnimationVariable().
     // There is an initial value, and after that, values can only be set by the transition.
     IUIAnimationVariable* pAnimVar = nullptr;
     hr = pAnimMgr->CreateAnimationVariable(0.0f, &pAnimVar);
+
+    // Create and assosiate the event handler for the animation variable
+    NotificationAnimationVariableChangeHandler* animVarEvHandler = new NotificationAnimationVariableChangeHandler;
+    animVarEvHandler->SetUpdateCallbackAction(animation.GetUpdateCallback());
+    pAnimVar->SetVariableChangeHandler(animVarEvHandler);
 
     // Create a storyboard by calling IUIAnimationManager::CreateStoryboard().
     // A storyboard is a storage that contains all the variables and their animation transitions.
@@ -77,27 +107,32 @@ void Animator::DoSampleAnimation(std::function<void()> cbAction)
     hr = pAnimMgr->CreateStoryboard(&pStoryboard);
 
     // Call IUIAnimationTransitionLibrary methods to create standard transitions. 
-    // The application here creates a linear transition variable (CreateLinearTransition) which represents the X axis in a sinusoid oscillation,
-    // and a sinusoidal transition variable (CreateSinusoidalTransitionFromRange) which represents the Y axis.
-    IUIAnimationTransition* pTransition = nullptr;
-    hr = pTransLib->CreateLinearTransition(10, 100, &pTransition);
-    hr = pStoryboard->AddTransition(pAnimVar, pTransition);
-    pTransition->Release();
+    for (const auto& t : animation.GetStoryboard())
+    {
+        IUIAnimationTransition* pTransition = nullptr;
+        hr = pTransLib->CreateLinearTransition(t.GetDuration() / 1000.0, t.GetFinalVal(), &pTransition);
+        hr = pStoryboard->AddTransition(pAnimVar, pTransition);
+        pTransition->Release();
+    }
 
     // Get the current "animation time" by calling IUIAnimationTimer::GetTime(), 
     // then pass it to IUIAnimationStoryboard::Schedule(). This starts the animation.
     UI_ANIMATION_SECONDS secs = 0;
     if (FAILED(pAnimTmr->GetTime(&secs)))
         return;
-    hr = pStoryboard->Schedule(secs);
+    pStoryboard->Schedule(secs);
+
+    // If animation timer was deactivated, activate him again
+    if (FAILED(pAnimTmr->IsEnabled()))
+        pAnimTmr->Enable();
 }
 
 ///==============================================================
-///= NotificationAnimationManagerEventHandler
+///= NotificationAnimationVariableChangeHandler
 ///==============================================================
-NotificationAnimationManagerEventHandler::NotificationAnimationManagerEventHandler() { ref = 1; }
-ULONG __stdcall NotificationAnimationManagerEventHandler::AddRef() { return ++ref; }
-ULONG __stdcall NotificationAnimationManagerEventHandler::Release()
+NotificationAnimationVariableChangeHandler::NotificationAnimationVariableChangeHandler() { ref = 1; }
+ULONG __stdcall NotificationAnimationVariableChangeHandler::AddRef() { return ++ref; }
+ULONG __stdcall NotificationAnimationVariableChangeHandler::Release()
 {
     ULONG nRef = --ref;
     if (nRef == 0)
@@ -105,10 +140,10 @@ ULONG __stdcall NotificationAnimationManagerEventHandler::Release()
     return nRef;
 }
 
-HRESULT __stdcall NotificationAnimationManagerEventHandler::QueryInterface(const IID& id, void** p)
+HRESULT __stdcall NotificationAnimationVariableChangeHandler::QueryInterface(const IID& id, void** p)
 {
     if (id == __uuidof(IUnknown) ||
-        id == __uuidof(IUIAnimationManagerEventHandler))
+        id == __uuidof(IUIAnimationVariableChangeHandler))
     {
         *p = this;
         AddRef();
@@ -119,76 +154,23 @@ HRESULT __stdcall NotificationAnimationManagerEventHandler::QueryInterface(const
     return E_NOINTERFACE;
 }
 
-HRESULT __stdcall NotificationAnimationManagerEventHandler::OnManagerStatusChanged(
-    UI_ANIMATION_MANAGER_STATUS newStatus,
-    UI_ANIMATION_MANAGER_STATUS previousStatus
+HRESULT __stdcall NotificationAnimationVariableChangeHandler::OnValueChanged(
+    IUIAnimationStoryboard *storyboard,
+    IUIAnimationVariable   *variable,
+    DOUBLE                 newValue,
+    DOUBLE                 previousValue
 )
 {
-    UNREFERENCED_PARAMETER(previousStatus);
-    if (newStatus == UI_ANIMATION_MANAGER_IDLE)
-    {
-        // When the animation is done, you are notified. Recreate stuff to restart the animation.
-    }
+    UNREFERENCED_PARAMETER(storyboard);
+    UNREFERENCED_PARAMETER(variable);
+    UNREFERENCED_PARAMETER(previousValue);
+
+    if (updateCb)
+        updateCb(newValue); 
     return S_OK;
 }
 
-///==============================================================
-///= NotificationAnimationTimeEventHandler
-///==============================================================
-NotificationAnimationTimeEventHandler::NotificationAnimationTimeEventHandler() { ref = 1; }
-ULONG __stdcall NotificationAnimationTimeEventHandler::AddRef() { return ++ref; }
-ULONG __stdcall NotificationAnimationTimeEventHandler::Release()
+void NotificationAnimationVariableChangeHandler::SetUpdateCallbackAction(UpdateCallback updateCb)
 {
-    ULONG nRef = --ref;
-    if (nRef == 0)
-        delete this;
-    return nRef;
+    this->updateCb = updateCb;
 }
-
-HRESULT __stdcall NotificationAnimationTimeEventHandler::QueryInterface(const IID& id,void**p)
-{
-    if (id == __uuidof(IUnknown) ||
-        id == __uuidof(IUIAnimationTimerEventHandler))
-    {
-        *p = this;
-        AddRef();
-        return NOERROR;
-    }
-
-    *p = nullptr;
-    return E_NOINTERFACE;
-}
-
-HRESULT __stdcall NotificationAnimationTimeEventHandler::OnPostUpdate()
-{
-    return S_OK;
-}
-
-HRESULT __stdcall NotificationAnimationTimeEventHandler::OnPreUpdate()
-{
-    // Your event handler OnPreUpdate is called when the variables are changed. 
-    // Use IUIAnimationVariable::GetValue() to query the values of the variables, then use them to draw the objects based on their value.
-    
-    // Request the y variable value
-    /*
-    DOUBLE v0 = 0;
-    if (amv[0])
-        amv[0]->GetValue(&v0);
-    */
-    for (auto& a : cbActions)
-        a();
-
-    return S_OK;
-}
-
-HRESULT __stdcall NotificationAnimationTimeEventHandler::OnRenderingTooSlow(UINT32 framesPerSecond)
-{
-    UNREFERENCED_PARAMETER(framesPerSecond);
-    return E_NOTIMPL;
-}
-
-void NotificationAnimationTimeEventHandler::AddCallbackAction(std::function<void()> cbAct)
-{
-    cbActions.push_back(cbAct);
-}
-

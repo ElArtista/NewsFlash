@@ -15,14 +15,18 @@ void NotificationDrawer::SpawnNotification(const std::string& msg, unsigned int 
 
     // Schedule spawn animation
     NotificationWindow* rNw = nw.get();
-    auto f = [rNw]() 
+    auto f1 = [rNw](double p)
     {
-        unsigned int prevAlpha = rNw->GetAlpha();
-        prevAlpha += 5;
-        if (prevAlpha < 100)
-            rNw->SetAlpha(prevAlpha);
+        rNw->SetAlpha(p);
     };
-    mAnimator.DoSampleAnimation(f);
+    nw->SetAlpha(0);
+
+    Transition t1(1000, 0, 100);
+    Transition t2(2000, 100, 0);
+    Storyboard s(t1, t2);
+    Animation a(s, f1);
+
+    mAnimator.DoSampleAnimation(a);
 
     // Add it to the notifications' map
     mNotifications.insert(std::make_pair(id, std::move(nw)));

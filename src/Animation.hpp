@@ -33,10 +33,85 @@
 
 #include <UIAnimation.h>
 #include <atlbase.h>
-#include <vector>
+#include <list>
 #include <functional>
 
-class NotificationAnimationTimeEventHandler;
+// Alias of the update callback signature for convenience
+using UpdateCallback = std::function<void(double)>;
+
+class Transition
+{
+    public:
+        /// Constructor
+        Transition(unsigned long duration, double initVal, double finalVal);
+
+        /// Retrieves the transition duration in milliseconds
+        unsigned long GetDuration() const;
+
+        /// Retrieves the initial value of the animation variable
+        double GetInitVal() const;
+
+        /// Retrieves the final value of the animation variable
+        double GetFinalVal() const;
+
+    private:
+        /// The transition duration in millisecconds
+        unsigned long mDuration;
+
+        /// The initial value
+        double mInitVal;
+
+        /// The final value
+        double mFinalVal;
+
+        /// TODO: Add interpolator type
+};
+
+class Storyboard
+{
+    public:
+        /// Constructor that takes n+ Transitions
+        template<class... Transitions>
+        Storyboard(Transition x, Transitions... xs) : Storyboard(xs...)
+        {
+            mTransitions.push_front(x);
+        };
+
+        /// Iterator access for use in for range loops
+        using const_iterator = std::list<Transition>::const_iterator;
+        friend auto begin(const Storyboard&) -> const_iterator;
+        friend auto end(const Storyboard&) -> const_iterator;
+    private:
+        /// No argument Constructor, hidden prevent Storyboards created without Transitions
+        Storyboard() = default;
+
+        /// The holder of the Transitions
+        std::list<Transition> mTransitions;
+};
+
+/// Const access iterators for Storyboard
+auto begin(const Storyboard&) -> Storyboard::const_iterator;
+auto end(const Storyboard&) -> Storyboard::const_iterator;
+
+class Animation
+{
+    public:
+        /// Constructor
+        Animation(Storyboard s, UpdateCallback updateCb);
+
+        /// Retrieves the Animation Storyboard that contains the Animation's Transitions
+        const Storyboard& GetStoryboard() const;
+
+        /// Retrieves the Animation's UpdtateCallback that is called when the animation value changes
+        const UpdateCallback& GetUpdateCallback() const;
+
+    private:
+        /// The UpdateCallback holder
+        UpdateCallback mUpdateCb;
+
+        /// The Storyboard holder
+        Storyboard mStoryboard;
+};
 
 class Animator
 {
@@ -51,8 +126,8 @@ class Animator
         Animator(const Animator&) = delete;
         Animator& operator=(const Animator&) = delete;
 
-        /// Schedules a sample animation with given function as a callback
-        void DoSampleAnimation(std::function<void()> cbAction);
+        /// Schedules a sample animation
+        void DoSampleAnimation(const Animation& a);
 
     private:
         // The holder of the UIAnimationManager
@@ -63,55 +138,33 @@ class Animator
 
         // The holder of the UITransitionLibrary
         CComPtr<IUIAnimationTransitionLibrary> pTransLib;
-
-        // The timer event handler implementation
-        NotificationAnimationTimeEventHandler* timeEvHandler;
 };
 
-class NotificationAnimationManagerEventHandler : public IUIAnimationManagerEventHandler
+class NotificationAnimationVariableChangeHandler : public IUIAnimationVariableChangeHandler
 {
     public:
         /// Constructor
-        NotificationAnimationManagerEventHandler();
+        NotificationAnimationVariableChangeHandler();
 
         /// IUnknown Interface implementation
         ULONG __stdcall AddRef();
         ULONG __stdcall Release();
         HRESULT __stdcall QueryInterface(const IID& id, void** p);
 
-        /// IUIAnimationManagerEventHandler
-        HRESULT __stdcall OnManagerStatusChanged(
-            UI_ANIMATION_MANAGER_STATUS newStatus,
-            UI_ANIMATION_MANAGER_STATUS previousStatus
+        /// IUIAnimationVariableChangeHandler Interface Implementation
+        HRESULT __stdcall OnValueChanged(
+            IUIAnimationStoryboard *storyboard,
+            IUIAnimationVariable   *variable,
+            DOUBLE                 newValue,
+            DOUBLE                 previousValue
         );
 
-    private:
-        /// Reference counter of current object
-        unsigned long ref;
-};
-
-class NotificationAnimationTimeEventHandler : public IUIAnimationTimerEventHandler
-{
-    public:
-        /// Constructor
-        NotificationAnimationTimeEventHandler();
-
-        /// IUnknown Interface implementation
-        ULONG __stdcall AddRef();
-        ULONG __stdcall Release();
-        HRESULT __stdcall QueryInterface(const IID& id, void** p);
-
-        /// IUIAnimationTimerEventHandler Interface Implementation
-        HRESULT __stdcall OnPostUpdate();
-        HRESULT __stdcall OnPreUpdate();
-        HRESULT __stdcall OnRenderingTooSlow(UINT32 framesPerSecond);
-
-        /// Appends a callback function that is called when the animation ticks
-        void AddCallbackAction(std::function<void()> cbAction);
+        /// Sets the callback function that is called when the animation ticks
+        void SetUpdateCallbackAction(UpdateCallback updateCb);
 
     private:
-        /// Holder of the callback functions
-        std::vector<std::function<void()>> cbActions;
+        /// Holder of the update callback
+        UpdateCallback updateCb;
 
         /// Reference counter of current object
         unsigned long ref;
