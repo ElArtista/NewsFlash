@@ -1,4 +1,18 @@
 #include "NotificationDrawer.hpp"
+#include <thread>
+
+template<typename Callable>
+void runAfter(Callable c, unsigned long millisec)
+{
+    std::thread t(
+        [=]()
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(millisec));
+            c();
+        }
+    );
+    t.detach();
+}
 
 unsigned long NotificationDrawer::sNWIdGen = 0;
 
@@ -17,7 +31,7 @@ void NotificationDrawer::SpawnNotification(const std::string& msg, unsigned int 
     NotificationWindow* rNw = nw.get();
     auto f1 = [rNw](double p)
     {
-        rNw->SetAlpha(p);
+        rNw->SetAlpha(static_cast<unsigned int>(p));
     };
     nw->SetAlpha(0);
 
@@ -30,6 +44,15 @@ void NotificationDrawer::SpawnNotification(const std::string& msg, unsigned int 
 
     // Add it to the notifications' map
     mNotifications.insert(std::make_pair(id, std::move(nw)));
+
+    runAfter(
+        [this, id]()
+        {
+            auto n = mNotifications.find(id);
+            mNotifications.erase(n);
+        },
+        lifetime
+    );
 }
 
 void NotificationDrawer::Clear()
