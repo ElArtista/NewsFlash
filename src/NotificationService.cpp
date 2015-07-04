@@ -2,6 +2,9 @@
 
 void NotificationService::Run()
 {
+    // Create the NotificationDrawer
+    mDrawer = std::make_unique<NotificationDrawer>();
+
     // Create the message window that will receive the notification create events
     CreateMsgWnd();
 
@@ -24,7 +27,10 @@ void NotificationService::RunAsync()
 void NotificationService::Stop()
 {
     // Destroy all Notification windows
-    mDrawer.Clear();
+    mDrawer->Clear();
+
+    // Destroy the NotificationDrawer
+    mDrawer.reset(nullptr);
 
     // Close the message loop by sending WM_DESTROY to the message window
     SendMessage(mHMsgWnd, WM_DESTROY, 0, 0);
@@ -71,7 +77,7 @@ LRESULT NotificationService::MessageHandler(HWND hh, UINT mm, WPARAM ww, LPARAM 
             NotificationData* data = reinterpret_cast<NotificationData*>(ll);
 
             // Create and store the notification
-            mDrawer.SpawnNotification(data->msg, data->lifetime);
+            mDrawer->SpawnNotification(data->msg, data->lifetime);
             
             // Delete unused notification data
             delete data;

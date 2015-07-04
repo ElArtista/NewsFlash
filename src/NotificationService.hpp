@@ -70,7 +70,7 @@ class NotificationService : public UIElement
         HWND mHMsgWnd;
 
         /// The drawer that manages the lifetime, position and animations of the notifications
-        NotificationDrawer mDrawer;
+        std::unique_ptr<NotificationDrawer> mDrawer;
 
         /// The type of the message that is used when spawning a notification
         static const UINT WM_SPAWN_NOTIFICATION;
