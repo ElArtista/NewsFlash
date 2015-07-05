@@ -1,5 +1,6 @@
 #include "NotificationWindow.hpp"
 #include <thread>
+#include <sstream>
 
 const TCHAR* NotificationWindow::wndClassName = _T("NotificationWndClass");
 
@@ -16,7 +17,7 @@ NotificationWindow::NotificationWindow() : mHwnd(nullptr)
 
 NotificationWindow::~NotificationWindow()
 {
-    Destroy();
+    SendMessage(mHwnd, WM_DESTROY, 0, 0);
 }
 
 bool NotificationWindow::Register()
@@ -67,7 +68,7 @@ void NotificationWindow::Create()
 
     // Remove borders and stuff
     SetWindowLongPtr(mHwnd, GWL_STYLE, 0);
-    ShowWindow(mHwnd, SW_SHOW);
+    //ShowWindow(mHwnd, SW_SHOW);
     UpdateWindow(mHwnd);
 }
 
@@ -79,7 +80,19 @@ void NotificationWindow::Destroy()
 
 void NotificationWindow::SetMessage(const std::string& msg)
 {
-    (void) msg;
+    mMessage = msg;
+}
+
+void NotificationWindow::Show(bool s)
+{
+    ShowWindow(mHwnd, s ? SW_SHOW : SW_HIDE);
+}
+
+std::pair<int, int> NotificationWindow::GetPosition() const
+{
+    RECT rc;
+    GetWindowRect(mHwnd, &rc);
+    return std::make_pair(rc.left, rc.top);
 }
 
 void NotificationWindow::SetPosition(int x, int y)
@@ -112,10 +125,8 @@ void NotificationWindow::OnPaint()
     int width = clientRect.right - clientRect.left;
     int height = clientRect.bottom - clientRect.top;
 
-    // Change dc measurements to logical units
-    SetMapMode(hdc, MM_ANISOTROPIC); 
-    SetWindowExtEx(hdc, 100, 100, NULL); 
-    SetViewportExtEx(hdc, clientRect.right, clientRect.bottom, NULL); 
+    // Change device mapping mode for better font rendering
+    SetMapMode(hdc, MM_TEXT);
 
     // Create memory bitmap
     HDC hMemDC = CreateCompatibleDC(hdc);
@@ -132,13 +143,42 @@ void NotificationWindow::OnPaint()
     // Draw the chessboard
     HBRUSH hbrGray = static_cast<HBRUSH>(GetStockObject(GRAY_BRUSH));
 
+    RECT bufferRect;
     for (int i = 0; i < 13; i++) 
     { 
-        int x = (i * 40) % 100; 
-        int y = ((i * 40) / 100) * 20; 
-        SetRect(&clientRect, x, y, x + 20, y + 20); 
-        FillRect(hMemDC, &clientRect, hbrGray); 
-    }  
+        int x = (i * 80) % width;
+        int y = ((i * 80) / height) * 40;
+        SetRect(&bufferRect, x, y, x + 40, y + 40);
+        FillRect(hMemDC, &bufferRect, hbrGray);
+    }
+
+    // Reset clientRect variable
+    //GetClientRect(mHwnd, &clientRect);
+
+    //
+    // Draw the notification text in the center
+    //
+
+    // Calculate the positioning
+    RECT textRect = clientRect;
+
+    // Convert message to widechar
+    std::wstringstream ws;
+    ws << mMessage.c_str();
+    std::wstring m = ws.str();
+
+    // Draw the text
+    int fontHeight = -MulDiv(90, GetDeviceCaps(hMemDC, LOGPIXELSY), 72);
+    HFONT font = CreateFont(fontHeight, 0, 0, 0, FW_DONTCARE, 0, 0, 0, DEFAULT_CHARSET, OUT_TT_ONLY_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, L"Consolas");
+    HGDIOBJ oldFont = SelectObject(hMemDC, font);
+
+    int prevBkMode = SetBkMode(hMemDC, TRANSPARENT);
+    DrawText(hMemDC, m.c_str(), -1, &textRect, DT_CENTER | DT_SINGLELINE | DT_VCENTER);
+    SetBkMode(hMemDC, prevBkMode);
+
+    SelectObject(hMemDC, oldFont);
+    DeleteObject(font);
+
     // Actual draw operations end here
     // =
 
@@ -167,9 +207,16 @@ LRESULT CALLBACK NotificationWindow::MessageHandler(HWND hh, UINT mm, WPARAM ww,
             SetLayeredWindowAttributes(hh, col, 127, LWA_ALPHA);
             break;
         }
+        case WM_ERASEBKGND:
+            return 1;
         case WM_PAINT:
         {
             OnPaint();
+            break;
+        }
+        case WM_DESTROY:
+        {
+            Destroy();
             break;
         }
         default:

@@ -16,6 +16,12 @@ class NotificationWindow : public UIElement
         /// Sets the notification message
         void SetMessage(const std::string& msg);
 
+        /// Sets the visibility of teh notification window
+        void Show(bool s);
+
+        /// Retrieves the notification window position
+        std::pair<int, int> GetPosition() const;
+
         /// Sets the notification window position
         void SetPosition(int x, int y);
 
@@ -40,6 +46,9 @@ class NotificationWindow : public UIElement
 
         /// The WndProc
         LRESULT CALLBACK MessageHandler(HWND hh, UINT mm, WPARAM ww, LPARAM ll);
+
+        /// The message assosiated with the current NotificationWindow
+        std::string mMessage;
 
         /// Handle to current window
         HWND mHwnd;
