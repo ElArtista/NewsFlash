@@ -34,8 +34,45 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
+#include <deque>
+#include <list>
 #include "NotificationWindow.hpp"
 #include "Animation.hpp"
+
+// Abstracting the id type
+using NotificationId = unsigned long;
+
+// Type that holds weak handles to the running animations of a Notification
+using AnimationMap = std::unordered_map<std::string, AnimationHandle>;
+
+class Notification
+{
+    public:
+        /// Constructor
+        explicit Notification(const std::string& msg, int initX, int initY);
+
+        /// Destructor
+        ~Notification();
+
+        /// Sets the Animator object to use for the various window animations of the Notification
+        void SetAnimator(Animator* a);
+
+        /// Retrieves the notification position
+        std::pair<int, int> GetPosition() const;
+
+        /// Changes notification position gradually using generated animation from animator
+        void SetPosition(int newX, int newY);
+
+    private:
+        /// The representation of the Notification as a Window
+        std::unique_ptr<NotificationWindow> mNotificationWindow;
+
+        /// The object that animates the Notification in its various actions
+        Animator* mAnimator;
+
+        /// Caches various animation weak handles
+        AnimationMap mAnimMap;
+};
 
 class NotificationDrawer
 {
@@ -47,14 +84,17 @@ class NotificationDrawer
         void Clear();
 
     private:
-        /// The container that holds the notification window instances
-        std::unordered_map<unsigned long, std::unique_ptr<NotificationWindow>> mNotifications;
+        /// The container that holds the notification window instances that are alive
+        std::unordered_map<NotificationId, std::unique_ptr<Notification>> mNotifications;
+
+        /// The queue that keeps the currently visible notification id, in the order they are visible
+        std::deque<NotificationId> mVisibleList;
 
         /// The Animator that schedules the various animation effects
         Animator mAnimator;
 
         /// The id value generator
-        static unsigned long sNWIdGen;
+        static NotificationId sNWIdGen;
 };
 
 #endif // ! _NOTIFICATION_DRAWER_HPP_

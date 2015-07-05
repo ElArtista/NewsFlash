@@ -29,7 +29,7 @@ auto end(const Storyboard& s) -> Storyboard::const_iterator
 }
 
 ///==============================================================
-///= Storyboard
+///= Animation
 ///==============================================================
 Animation::Animation(Storyboard s, UpdateCallback updateCb)
     : mStoryboard(s),
@@ -39,6 +39,29 @@ Animation::Animation(Storyboard s, UpdateCallback updateCb)
 
 auto Animation::GetStoryboard() const -> const Storyboard& { return mStoryboard; }
 auto Animation::GetUpdateCallback() const -> const UpdateCallback& { return mUpdateCb; }
+
+///==============================================================
+///= AnimationHandle
+///==============================================================
+AnimationHandle::AnimationHandle(std::weak_ptr<CComPtr<IUIAnimationStoryboard>> w)
+{
+    this->w = w;
+}
+
+bool AnimationHandle::IsValid() const
+{
+    return !w.expired();
+}
+
+void AnimationHandle::Cancel()
+{
+    if (IsValid())
+    {
+        auto p = w.lock();
+        auto cp = *p;
+        cp->Abandon();
+    }
+}
 
 ///==============================================================
 ///= Animator
@@ -87,14 +110,15 @@ Animator::~Animator()
 }
 
 // Animates given window with a custom transition
-void Animator::DoSampleAnimation(const Animation& animation)
+AnimationHandle Animator::DoSampleAnimation(const Animation& animation)
 {
     HRESULT hr;
 
     // Create all the animation variables by calling IUIAnimationManager::CreateAnimationVariable().
     // There is an initial value, and after that, values can only be set by the transition.
     IUIAnimationVariable* pAnimVar = nullptr;
-    hr = pAnimMgr->CreateAnimationVariable(0.0f, &pAnimVar);
+    auto initVal = (*(begin(animation.GetStoryboard()))).GetInitVal();
+    hr = pAnimMgr->CreateAnimationVariable(initVal, &pAnimVar);
 
     // Create and assosiate the event handler for the animation variable
     NotificationAnimationVariableChangeHandler* animVarEvHandler = new NotificationAnimationVariableChangeHandler;
@@ -103,8 +127,29 @@ void Animator::DoSampleAnimation(const Animation& animation)
 
     // Create a storyboard by calling IUIAnimationManager::CreateStoryboard().
     // A storyboard is a storage that contains all the variables and their animation transitions.
-    IUIAnimationStoryboard* pStoryboard = nullptr;
+    CComPtr<IUIAnimationStoryboard> pStoryboard = nullptr;
     hr = pAnimMgr->CreateStoryboard(&pStoryboard);
+
+    // Store the storyboard to the alive animations
+    auto aliveAnim = std::make_shared<CComPtr<IUIAnimationStoryboard>>(pStoryboard);
+    mAliveAnimations.push_back(aliveAnim);
+
+    // Set the Storyboard event handler to take the end of the animation events
+    NotificationAnimationEventHandler* notificationAnimEvHandler = new NotificationAnimationEventHandler;
+    notificationAnimEvHandler->SetFinishCallback(
+        [this, pStoryboard]()
+        {
+            auto a = std::find_if(std::begin(mAliveAnimations), std::end(mAliveAnimations),
+                [pStoryboard](const std::shared_ptr<CComPtr<IUIAnimationStoryboard>>& cp) -> bool
+                {
+                    return *cp == pStoryboard;
+                }
+            );
+            if (a != std::end(mAliveAnimations))
+                mAliveAnimations.erase(a);
+        }
+    );
+    pStoryboard->SetStoryboardEventHandler(notificationAnimEvHandler);
 
     // Call IUIAnimationTransitionLibrary methods to create standard transitions. 
     for (const auto& t : animation.GetStoryboard())
@@ -118,13 +163,70 @@ void Animator::DoSampleAnimation(const Animation& animation)
     // Get the current "animation time" by calling IUIAnimationTimer::GetTime(), 
     // then pass it to IUIAnimationStoryboard::Schedule(). This starts the animation.
     UI_ANIMATION_SECONDS secs = 0;
-    if (FAILED(pAnimTmr->GetTime(&secs)))
-        return;
+    pAnimTmr->GetTime(&secs);
     pStoryboard->Schedule(secs);
 
     // If animation timer was deactivated, activate him again
     if (FAILED(pAnimTmr->IsEnabled()))
         pAnimTmr->Enable();
+
+    return AnimationHandle(aliveAnim);
+}
+
+///==============================================================
+///= NotificationAnimationEventHandler
+///==============================================================
+NotificationAnimationEventHandler::NotificationAnimationEventHandler() { ref = 1; }
+ULONG __stdcall NotificationAnimationEventHandler::AddRef() { return ++ref; }
+ULONG __stdcall NotificationAnimationEventHandler::Release()
+{
+    ULONG nRef = --ref;
+    if (nRef == 0)
+        delete this;
+    return nRef;
+}
+
+HRESULT __stdcall NotificationAnimationEventHandler::QueryInterface(const IID& id, void** p)
+{
+    if (id == __uuidof(IUnknown) ||
+        id == __uuidof(IUIAnimationStoryboardEventHandler))
+    {
+        *p = this;
+        AddRef();
+        return NOERROR;
+    }
+
+    *p = nullptr;
+    return E_NOINTERFACE;
+}
+
+HRESULT __stdcall NotificationAnimationEventHandler::OnStoryboardStatusChanged(
+    IUIAnimationStoryboard* storyboard,
+    UI_ANIMATION_STORYBOARD_STATUS newStatus,
+    UI_ANIMATION_STORYBOARD_STATUS previousStatus
+)
+{
+    UNREFERENCED_PARAMETER(storyboard);
+    UNREFERENCED_PARAMETER(previousStatus);
+    if (newStatus == UI_ANIMATION_STORYBOARD_FINISHED)
+    {
+        if (mFinishCb)
+            mFinishCb();
+    }
+    return S_OK;
+}
+
+HRESULT __stdcall NotificationAnimationEventHandler::OnStoryboardUpdated(
+    IUIAnimationStoryboard* storyboard
+)
+{
+    UNREFERENCED_PARAMETER(storyboard);
+    return S_OK;
+}
+
+void NotificationAnimationEventHandler::SetFinishCallback(FinishCallback finishCb)
+{
+    mFinishCb = finishCb;
 }
 
 ///==============================================================

@@ -34,7 +34,9 @@
 #include <UIAnimation.h>
 #include <atlbase.h>
 #include <list>
+#include <vector>
 #include <functional>
+#include <memory>
 
 // Alias of the update callback signature for convenience
 using UpdateCallback = std::function<void(double)>;
@@ -113,6 +115,23 @@ class Animation
         Storyboard mStoryboard;
 };
 
+class AnimationHandle
+{
+    public:
+        /// Constructor
+        AnimationHandle(std::weak_ptr<CComPtr<IUIAnimationStoryboard>> w);
+
+        /// Checks if the current handle is still valid
+        bool IsValid() const;
+
+        /// Cancels the Animation that the handle points to if handle is still valid
+        void Cancel();
+
+    private:
+        /// Weak reference to the object that represents a running Animation
+        std::weak_ptr<CComPtr<IUIAnimationStoryboard>> w;
+};
+
 class Animator
 {
     public:
@@ -127,7 +146,7 @@ class Animator
         Animator& operator=(const Animator&) = delete;
 
         /// Schedules a sample animation
-        void DoSampleAnimation(const Animation& a);
+        AnimationHandle DoSampleAnimation(const Animation& a);
 
     private:
         // The holder of the UIAnimationManager
@@ -138,6 +157,43 @@ class Animator
 
         // The holder of the UITransitionLibrary
         CComPtr<IUIAnimationTransitionLibrary> pTransLib;
+
+        // Keeps the alive animation instances as handles
+        std::vector<std::shared_ptr<CComPtr<IUIAnimationStoryboard>>> mAliveAnimations;
+};
+
+using FinishCallback = std::function<void()>;
+
+class NotificationAnimationEventHandler : public IUIAnimationStoryboardEventHandler
+{
+    public:
+        /// Constructor
+        NotificationAnimationEventHandler();
+
+        /// IUnknown Interface implementation
+        ULONG __stdcall AddRef();
+        ULONG __stdcall Release();
+        HRESULT __stdcall QueryInterface(const IID& id, void** p);
+
+        /// IUIAnimationStoryboardEventHandler Interface implementation
+        HRESULT __stdcall OnStoryboardStatusChanged(
+            IUIAnimationStoryboard* storyboard,
+            UI_ANIMATION_STORYBOARD_STATUS newStatus,
+            UI_ANIMATION_STORYBOARD_STATUS previousStatus
+        );
+        HRESULT __stdcall OnStoryboardUpdated(
+            IUIAnimationStoryboard* storyboard
+        );
+
+        // Sets the callback to be called when the animation ends
+        void SetFinishCallback(FinishCallback finishCb);
+
+    private:
+        /// Holder of the finish callback
+        FinishCallback mFinishCb;
+
+        /// Reference counter of current object
+        unsigned long ref;
 };
 
 class NotificationAnimationVariableChangeHandler : public IUIAnimationVariableChangeHandler
