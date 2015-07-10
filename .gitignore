@@ -102,6 +102,7 @@ Temporary Items
 
 # Waf build system temp files
 .waf-*
+waf-*/
 .lock-*
 
 # Python precompiled files
