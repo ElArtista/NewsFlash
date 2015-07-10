@@ -186,9 +186,6 @@ ipch/
 # General untracked files and folders
 #=====================================
 
-# External libraries
-deps/
-
 # External resources
 ext/
 
