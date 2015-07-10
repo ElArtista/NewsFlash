@@ -1,6 +1,6 @@
 ![ProjectBanner][banner]
 # NewsFlash
----------------
+
 NewsFlash is a generic Notification System for Windows, written in Native Win32 API.
 
 ## Table of Contents <a name="toc"/>
