@@ -29,14 +29,14 @@ NewsFlash is a generic Notification System for Windows, written in Native Win32 
 
 ## Building <a name="building"/>
  1. Clone the project and cd to the cloned directory.
- 2. Run:
+ 2. Run:  
     ```
     python waf distclean configure --check-c-compiler=<CC> --check-cxx-compiler=<CXX>
-    ```
-    where CC and CXX combination can either be {msvc,msvc} | {gcc, g++} | {clang, clang++} and after that run:
+    ```  
+    where CC and CXX combination can either be {msvc,msvc} | {gcc, g++} | {clang, clang++} and after that run:  
     ```
     python waf clean build install --variant=<VARIANT> --arch=<ARCH>
-    ```
+    ```  
     where VARIANT can be either Release|Debug and ARCH can be either x86|x64.
  3. Built binaries will reside in the ```bin\<ARCH>\<VARIANT>``` directory.
 
