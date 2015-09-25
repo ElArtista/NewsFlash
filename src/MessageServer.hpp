@@ -37,7 +37,10 @@
 #include <set>
 #include <memory>
 
+#include "WarnGuard.hpp"
+WARN_GUARD_ON
 #include <asio.hpp>
+WARN_GUARD_OFF
 #include "Logger.hpp"
 
 /// Sets the function that will be called when the message server receives a notification
